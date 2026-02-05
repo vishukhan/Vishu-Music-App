@@ -32,7 +32,6 @@
         .song-info h4 { margin: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .song-info p { margin: 3px 0 0 0; font-size: 12px; color: var(--text-dim); }
 
-        /* Favorite Button Style */
         .fav-btn { padding: 10px; color: var(--text-dim); }
         .fav-btn.active { color: #e91e63; }
 
@@ -102,7 +101,7 @@
             <i id="p-fav-icon" class="far fa-heart" onclick="toggleFavoriteFromPlayer()" style="font-size:20px; cursor:pointer;"></i>
         </div>
         <div class="progress-container">
-            <input type="range" id="seek-bar" value="0">
+            <input type="range" id="seek-bar" value="0" min="0" max="100" oninput="seekTo(this.value)">
             <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-dim); margin-top:5px;">
                 <span id="curr-time">0:00</span><span id="total-time">0:00</span>
             </div>
@@ -135,11 +134,7 @@
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script>
-        const API_KEYS = [
-            "AIzaSyBt7zNiIw5Ho1KzNPDbWse1iPHeP6b21b4", 
-            "AIzaSyAiR4UOiSCY17TSYYR_SfDIbxfGL1Li6mk", 
-            "AIzaSyBuIVQzvUs4mo82LxdD3idqzYTUiUyojak"
-        ];
+        const API_KEYS = ["AIzaSyBt7zNiIw5Ho1KzNPDbWse1iPHeP6b21b4", "AIzaSyAiR4UOiSCY17TSYYR_SfDIbxfGL1Li6mk", "AIzaSyBuIVQzvUs4mo82LxdD3idqzYTUiUyojak"];
         let currentKeyIndex = 0;
 
         const ARTISTS = [
@@ -156,7 +151,10 @@
 
         function onYouTubeIframeAPIReady() {
             ytPlayer = new YT.Player('yt-player-api', {
-                events: { 'onStateChange': onStateChange, 'onReady': () => { renderArtists(); loadCategory('Trending Songs'); } }
+                events: { 
+                    'onStateChange': onStateChange, 
+                    'onReady': () => { renderArtists(); loadCategory('Trending Songs'); } 
+                }
             });
         }
 
@@ -177,7 +175,6 @@
                 </div>`).join('');
         }
 
-        // Logic for adding/removing favorites
         function toggleFavorite(song, event) {
             if(event) event.stopPropagation();
             const index = favorites.findIndex(f => f.id === song.id);
@@ -259,10 +256,19 @@
         }
 
         function togglePlay() { isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); }
+
         function onStateChange(e) { 
             isPlaying = (e.data === 1); 
             document.getElementById('play-icon').className = isPlaying ? "fas fa-pause-circle play-main" : "fas fa-play-circle play-main";
             if(e.data === 0) nextTrack(); 
+        }
+
+        // Seek function logic
+        function seekTo(value) {
+            if(ytPlayer && ytPlayer.getDuration) {
+                const newTime = (value / 100) * ytPlayer.getDuration();
+                ytPlayer.seekTo(newTime, true);
+            }
         }
 
         function nextTrack() { if(currentIndex < playlist.length-1) loadTrack(currentIndex+1); }
@@ -276,18 +282,25 @@
             if(id === 'favorites') renderFavList();
         }
 
+        // Live timer and seek bar sync
         setInterval(() => {
-            if(ytPlayer && ytPlayer.getCurrentTime) {
+            if(ytPlayer && ytPlayer.getCurrentTime && isPlaying) {
                 const c = ytPlayer.getCurrentTime(), t = ytPlayer.getDuration();
                 if(t > 0) {
-                    document.getElementById('seek-bar').value = (c/t)*100;
+                    document.getElementById('seek-bar').value = (c / t) * 100;
                     document.getElementById('curr-time').innerText = formatTime(c);
                     document.getElementById('total-time').innerText = formatTime(t);
                 }
             }
         }, 1000);
-        function formatTime(s) { const m=Math.floor(s/60), sec=Math.floor(s%60); return `${m}:${sec<10?'0':''}${sec}`; }
+
+        function formatTime(s) { 
+            const m = Math.floor(s / 60), sec = Math.floor(s % 60); 
+            return `${m}:${sec < 10 ? '0' : ''}${sec}`; 
+        }
+
         async function searchYT(q) { playlist = await fetchYT(q); renderList('yt-results'); }
+
         function renderUpNext() {
             const nextList = playlist.slice(currentIndex + 1, currentIndex + 11);
             document.getElementById('up-next-list').innerHTML = nextList.length ? nextList.map((s, i) => `
